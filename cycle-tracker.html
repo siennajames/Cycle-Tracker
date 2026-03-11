@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Track your menstrual cycle and export predictions to Google Calendar. Private, client-side, no account required." />
+<title>CycleSync — Track &amp; Predict Your Cycle</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>" />
+<style>
+/* ── Tokens ────────────────────────────────────────────────────────────────── */
+:root {
+  --c-primary:#B85C54;--c-primary-hover:#A04A42;
+  --c-primary-light:#F4E3E1;--c-primary-lighter:#FBF6F5;
+  --c-fertile:#2563EB;--c-fertile-hover:#1D4ED8;--c-fertile-light:#DBEAFE;
+  --c-ovulation:#CA8A04;--c-ovulation-light:#FEF3C7;
+  --c-symptom:#7E60A4;--c-symptom-light:#E8E2F4;
+  --c-past:#A89898;--c-past-light:#EDEBEA;
+  --c-bg:#FAFAF8;--c-bg-card:#FFFFFF;--c-bg-raised:#F5F1EE;
+  --c-text:#1A1212;--c-text-secondary:#5E4E4E;--c-text-muted:#A0908E;
+  --c-border:#EAE0DC;--c-border-strong:#D0C0BC;
+  --c-success:#2C7A4E;--c-success-bg:#ECFAF3;
+  --c-warning:#7A5318;--c-warning-bg:#FEF5E6;
+  --c-error:#B83228;--c-error-bg:#FDECEA;
+  --r-sm:8px;--r-md:10px;--r-lg:14px;--r-xl:20px;--r-full:9999px;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+  --font-mono:'SFMono-Regular',Consolas,'Liberation Mono',monospace;
+  --t-fast:140ms ease;--t-base:200ms ease;--t-slow:300ms ease;
+  --max-w:660px;
+}
+.dark {
+  --c-bg:#1C1414;--c-bg-card:#261C1C;--c-bg-raised:#2E2020;
+  --c-text:#F5EDE8;--c-text-secondary:#C4A898;--c-text-muted:#887068;
+  --c-border:#3A2A2A;--c-border-strong:#584040;
+  --c-primary-light:#3C2020;--c-primary-lighter:#281818;
+  --c-fertile-light:#1E3A5F;--c-ovulation-light:#3A2800;
+  --c-symptom-light:#221828;--c-past-light:#282020;
+  --c-success-bg:#0C281C;--c-warning-bg:#281C08;--c-error-bg:#280E0E;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--c-bg);color:var(--c-text);
+  line-height:1.75;min-height:100dvh;transition:background var(--t-slow),color var(--t-slow)}
+h1,h2,h3,h4{line-height:1.3;font-weight:500;color:var(--c-text)}
+p{margin:0}
+button{font-family:var(--font);cursor:pointer;border:none;background:none;padding:0}
+input,select,textarea{font-family:var(--font);font-size:1rem}
+a{color:var(--c-primary);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--c-primary);outline-offset:2px;border-radius:4px}
+
+/* ── Layout ────────────────────────────────────────────────────────────────── */
+.app{min-height:100dvh;display:flex;flex-direction:column;background:var(--c-bg)}
+.app-header{background:var(--c-bg-card);border-bottom:1px solid var(--c-border);
+  position:sticky;top:0;z-index:50}
+.app-header-inner{max-width:900px;margin:0 auto;padding:14px 24px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px}
+.app-logo{display:flex;align-items:center;gap:8px}
+.app-logo-icon{font-size:1.2rem}
+.app-logo-text{font-weight:600;font-size:1rem;letter-spacing:-.02em;color:var(--c-text)}
+.header-actions{display:flex;align-items:center;gap:8px}
+.app-main{flex:1;max-width:var(--max-w);width:100%;margin:0 auto;
+  padding:52px 24px 88px}
+.app-footer{text-align:center;padding:28px 24px;color:var(--c-text-muted);
+  font-size:.78rem;border-top:1px solid var(--c-border);line-height:1.6}
+@media(max-width:600px){
+  .app-main{padding:36px 18px 72px}
+  .app-header-inner{padding:12px 18px}
+}
+
+/* ── Progress ──────────────────────────────────────────────────────────────── */
+.progress-bar{max-width:900px;margin:0 auto;padding:8px 24px 12px}
+.progress-steps{display:flex;align-items:center}
+.progress-step{display:flex;align-items:center;gap:8px;flex:1}
+.progress-step:last-child{flex:0}
+.prog-dot{width:26px;height:26px;border-radius:var(--r-full);border:1.5px solid var(--c-border);
+  background:var(--c-bg);display:flex;align-items:center;justify-content:center;
+  font-size:.72rem;font-weight:600;color:var(--c-text-muted);flex-shrink:0;transition:all var(--t-base)}
+.prog-dot.active{border-color:var(--c-primary);background:var(--c-primary);color:#fff}
+.prog-dot.done{border-color:var(--c-primary);background:var(--c-primary-light);color:var(--c-primary)}
+.prog-label{font-size:.7rem;color:var(--c-text-muted);white-space:nowrap;
+  font-weight:500;transition:color var(--t-base)}
+.prog-label.active{color:var(--c-primary);font-weight:600}
+.prog-label.done{color:var(--c-text-secondary)}
+.prog-line{flex:1;height:1.5px;background:var(--c-border);margin:0 4px;transition:background var(--t-base)}
+.prog-line.done{background:var(--c-primary-light)}
+@media(max-width:420px){.prog-label{display:none}}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:.75rem 1.5rem;border-radius:var(--r-md);font-size:.9rem;font-weight:500;
+  line-height:1.2;transition:all var(--t-fast);cursor:pointer;border:1.5px solid transparent;
+  white-space:nowrap;letter-spacing:.01em}
+.btn-primary{background:var(--c-primary);color:#fff;border-color:var(--c-primary)}
+.btn-primary:hover{background:var(--c-primary-hover);border-color:var(--c-primary-hover)}
+.btn-secondary{background:var(--c-bg-card);color:var(--c-text);border-color:var(--c-border)}
+.btn-secondary:hover{border-color:var(--c-border-strong);background:var(--c-bg-raised)}
+.btn-ghost{background:transparent;color:var(--c-text-secondary);border-color:transparent}
+.btn-ghost:hover{background:var(--c-bg-raised);color:var(--c-text)}
+.btn-fertile{background:#2C7A4E;color:#fff;border-color:#2C7A4E}
+.btn-fertile:hover{background:#235F3C}
+.btn-danger{background:transparent;color:var(--c-error);border-color:transparent;font-size:.82rem}
+.btn-danger:hover{background:var(--c-error-bg)}
+.btn-sm{padding:.45rem 1rem;font-size:.82rem;border-radius:var(--r-sm)}
+.btn-lg{padding:1rem 2.25rem;font-size:1rem;border-radius:var(--r-lg)}
+.btn-full{width:100%}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-icon{width:34px;height:34px;border-radius:var(--r-md);background:transparent;
+  color:var(--c-text-secondary);font-size:1rem;display:flex;align-items:center;
+  justify-content:center;transition:all var(--t-fast);cursor:pointer;border:none}
+.btn-icon:hover{background:var(--c-bg-raised);color:var(--c-text)}
+.btn-dm{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-md);background:transparent;border:1.5px solid transparent;color:var(--c-text-secondary);font-size:.82rem;font-weight:500;cursor:pointer;transition:all var(--t-fast)}
+.btn-dm:hover{background:var(--c-bg-raised);color:var(--c-text)}
+.btn-dm.is-dark{background:var(--c-bg-raised);border-color:var(--c-border);color:var(--c-text)}
+.dm-label{font-size:.78rem}
+@media(max-width:520px){.dm-label{display:none}}
+.btn-log{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;
+  border-radius:var(--r-full);background:var(--c-primary-lighter);
+  border:1.5px solid var(--c-primary-light);color:var(--c-primary);
+  font-size:.8rem;font-weight:600;cursor:pointer;transition:all var(--t-fast)}
+.btn-log:hover{background:var(--c-primary-light)}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+.card{padding:32px 0;border-top:1px solid var(--c-border)}
+.card-flat{background:var(--c-bg-raised);border-radius:var(--r-lg);padding:20px 24px}
+
+/* ── Forms ─────────────────────────────────────────────────────────────────── */
+.form-group{display:flex;flex-direction:column;gap:8px}
+.form-label{font-size:.84rem;font-weight:500;color:var(--c-text-secondary);
+  display:flex;align-items:center;gap:8px}
+.form-hint{font-size:.8rem;color:var(--c-text-muted);line-height:1.65}
+.form-input{padding:14px 18px;border:1.5px solid var(--c-border);border-radius:var(--r-md);
+  background:var(--c-bg-card);color:var(--c-text);font-size:.95rem;
+  transition:border-color var(--t-fast),box-shadow var(--t-fast);width:100%}
+.form-input:focus{outline:none;border-color:var(--c-primary);
+  box-shadow:0 0 0 3px var(--c-primary-light)}
+.form-input::-webkit-calendar-picker-indicator{filter:opacity(.4);cursor:pointer}
+.dark .form-input::-webkit-calendar-picker-indicator{filter:invert(.7)}
+
+/* Stepper */
+.stepper{display:inline-flex;align-items:center;gap:12px;
+  background:var(--c-bg-raised);border:1.5px solid var(--c-border);
+  border-radius:var(--r-md);padding:10px 16px}
+.stepper-btn{width:30px;height:30px;border-radius:var(--r-sm);
+  background:var(--c-bg-card);border:1px solid var(--c-border);
+  font-size:1rem;font-weight:600;color:var(--c-text-secondary);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:all var(--t-fast);flex-shrink:0}
+.stepper-btn:hover:not(:disabled){border-color:var(--c-primary);color:var(--c-primary);background:var(--c-primary-light)}
+.stepper-btn:disabled{opacity:.3;cursor:not-allowed}
+.stepper-val{min-width:76px;text-align:center;font-weight:600;font-size:.95rem}
+.stepper-unit{font-size:.78rem;color:var(--c-text-muted)}
+
+/* ── Banners ───────────────────────────────────────────────────────────────── */
+.banner{padding:16px 20px;border-radius:var(--r-lg);font-size:.875rem;
+  display:flex;gap:14px;align-items:flex-start;line-height:1.65}
+.banner-icon{font-size:.95rem;flex-shrink:0;margin-top:2px}
+.banner-body{flex:1}
+.banner-title{font-weight:600;margin-bottom:3px}
+.banner-info{background:var(--c-primary-lighter);color:var(--c-primary-hover);
+  border:1px solid var(--c-primary-light)}
+.banner-warning{background:var(--c-warning-bg);color:var(--c-warning);border:1px solid #EDD890}
+.banner-success{background:var(--c-success-bg);color:var(--c-success);border:1px solid #90D4B0}
+.banner-error{background:var(--c-error-bg);color:var(--c-error);border:1px solid #E8B0AC}
+.banner-neutral{background:var(--c-bg-raised);color:var(--c-text-secondary);border:1px solid var(--c-border)}
+
+/* ── Model Summary Bar ─────────────────────────────────────────────────────── */
+.model-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 20px;border-radius:var(--r-lg);background:var(--c-bg-raised);
+  border:1px solid var(--c-border);margin-bottom:40px;flex-wrap:wrap}
+.model-bar-text{font-size:.82rem;color:var(--c-text-secondary);line-height:1.5}
+.model-bar-strong{font-weight:600;color:var(--c-text)}
+.model-bar-updated{font-size:.78rem;font-weight:600;color:var(--c-primary);
+  background:var(--c-primary-lighter);padding:3px 10px;border-radius:var(--r-full);
+  border:1px solid var(--c-primary-light)}
+
+/* ── Update Notice ─────────────────────────────────────────────────────────── */
+.update-notice{display:flex;gap:14px;align-items:flex-start;
+  padding:16px 20px;border-radius:var(--r-lg);
+  background:var(--c-success-bg);color:var(--c-success);
+  border:1px solid #90D4B0;margin-bottom:28px;animation:slideIn .25s ease}
+.update-notice-body{flex:1;font-size:.875rem;line-height:1.6}
+.update-notice-title{font-weight:600;margin-bottom:4px}
+.update-notice-close{background:none;border:none;cursor:pointer;
+  color:var(--c-success);opacity:.6;font-size:1.1rem;flex-shrink:0;padding:0}
+.update-notice-close:hover{opacity:1}
+@keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* ── Period List ───────────────────────────────────────────────────────────── */
+.period-list{display:flex;flex-direction:column;gap:2px}
+.period-item{display:flex;align-items:center;gap:14px;padding:12px 0;
+  border-bottom:1px solid var(--c-border);animation:slideIn .2s ease}
+.period-item-dot{width:8px;height:8px;border-radius:var(--r-full);
+  background:var(--c-primary);flex-shrink:0}
+.period-item-info{flex:1}
+.period-item-date{font-weight:500;font-size:.9rem}
+.period-item-dur{font-size:.78rem;color:var(--c-text-muted)}
+
+/* ── Cycle Length Input ─────────────────────────────────────────────────────── */
+.cycle-len-box{padding:28px 0;border-top:1px solid var(--c-border)}
+.cycle-len-box h3{font-size:1rem;font-weight:500;margin-bottom:6px}
+.cycle-day-explainer{padding:16px 20px;margin:16px 0 20px;
+  font-size:.9rem;line-height:1.75;color:var(--c-text);
+  background:var(--c-primary-lighter);border-radius:var(--r-md);
+  border-left:3px solid var(--c-primary)}
+.cycle-day-explainer strong{color:var(--c-primary);font-weight:600}
+
+/* ── Symptom Checkboxes ────────────────────────────────────────────────────── */
+.sym-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+@media(max-width:480px){.sym-grid{grid-template-columns:1fr}}
+.sym-check{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-radius:var(--r-md);cursor:pointer;transition:background var(--t-fast);
+  font-size:.875rem;color:var(--c-text-secondary);user-select:none}
+.sym-check:hover{background:var(--c-bg-raised)}
+.sym-check input[type=checkbox]{width:16px;height:16px;accent-color:var(--c-symptom);flex-shrink:0;cursor:pointer}
+.sym-check.checked{color:var(--c-text)}
+.sym-other-input{padding:10px 14px;border:1.5px solid var(--c-border);border-radius:var(--r-md);
+  background:var(--c-bg-card);color:var(--c-text);font-size:.875rem;width:100%;
+  transition:border-color var(--t-fast)}
+.sym-other-input:focus{outline:none;border-color:var(--c-symptom)}
+.sym-timing-sel{font-size:.75rem;padding:4px 8px;border:1px solid var(--c-border);border-radius:var(--r-sm);background:var(--c-bg-raised);color:var(--c-text-secondary);width:calc(100% - 26px);cursor:pointer;margin-top:2px;margin-left:26px;display:block}
+.sym-timing-sel:focus{outline:none;border-color:var(--c-symptom)}
+
+/* ── Stats ─────────────────────────────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:24px}
+.stat-card{padding:0;text-align:center}
+.stat-icon{font-size:1.4rem;margin-bottom:10px}
+.stat-val{font-size:1.7rem;font-weight:700;color:var(--c-primary);
+  line-height:1;margin-bottom:6px;letter-spacing:-.02em}
+.stat-lbl{font-size:.72rem;color:var(--c-text-muted);font-weight:500;
+  text-transform:uppercase;letter-spacing:.05em}
+
+/* ── Calendar ──────────────────────────────────────────────────────────────── */
+.calendar-months{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.month-cal{background:var(--c-bg-card);border:1px solid var(--c-border);
+  border-radius:var(--r-xl);padding:24px;min-width:256px}
+.month-cal-title{font-size:.95rem;font-weight:600;color:var(--c-text);
+  margin-bottom:16px;text-align:center}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-dn{font-size:.65rem;font-weight:700;color:var(--c-text-muted);
+  text-align:center;padding:4px 0;text-transform:uppercase;letter-spacing:.05em}
+.cal-d{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;cursor:default}
+.cal-d--empty{visibility:hidden}
+.cal-d--period{background:var(--c-primary-light)}
+.cal-d--fertile{background:var(--c-fertile-light)}
+.cal-d--ovulation{background:var(--c-ovulation-light)}
+.cal-d--past{background:var(--c-past-light)}
+.cal-d-num{font-size:.78rem;font-weight:500;color:var(--c-text);line-height:1}
+.cal-d--period   .cal-d-num{color:var(--c-primary);font-weight:700}
+.cal-d--fertile  .cal-d-num{color:var(--c-fertile);font-weight:600}
+.cal-d--ovulation .cal-d-num{color:var(--c-ovulation);font-weight:700}
+.cal-d--past .cal-d-num{color:var(--c-text-muted)}
+.cal-d--symptom{background:var(--c-symptom-light)}
+.cal-d--symptom .cal-d-num{color:var(--c-symptom);font-weight:600}
+.cal-d-num-today{width:20px;height:20px;border-radius:var(--r-full);
+  border:2px solid var(--c-text);display:flex;align-items:center;justify-content:center}
+.cal-d--period  .cal-d-num-today{border-color:var(--c-primary)}
+.cal-d--fertile .cal-d-num-today{border-color:var(--c-fertile)}
+.cal-d--ovulation .cal-d-num-today{border-color:var(--c-ovulation)}
+.cal-d-ov-dot{width:4px;height:4px;border-radius:var(--r-full);background:var(--c-ovulation)}
+.cal-d-syms{display:flex;gap:1px;justify-content:center}
+.cal-d-sym{font-size:.5rem;line-height:1}
+.cal-legend{display:flex;flex-wrap:wrap;gap:12px;padding:14px 18px;
+  background:var(--c-bg-card);border:1px solid var(--c-border);
+  border-radius:var(--r-lg);font-size:.78rem}
+.leg-item{display:flex;align-items:center;gap:7px;color:var(--c-text-secondary)}
+.leg-dot{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.leg-dot--period{background:var(--c-primary-light);border:1.5px solid var(--c-primary)}
+.leg-dot--fertile{background:var(--c-fertile-light);border:1.5px solid var(--c-fertile)}
+.leg-dot--ovulation{background:var(--c-ovulation-light);border:1.5px solid var(--c-ovulation)}
+.leg-dot--symptom{background:var(--c-symptom-light);border:1.5px solid var(--c-symptom)}
+.leg-dot--past{background:var(--c-past-light);border:1.5px solid var(--c-past)}
+
+/* ── Prediction List ───────────────────────────────────────────────────────── */
+.pred-list{display:flex;flex-direction:column;gap:0}
+.pred-item{padding:20px 0;border-bottom:1px solid var(--c-border);
+  display:grid;grid-template-columns:1fr 1fr;gap:8px 20px}
+@media(max-width:460px){.pred-item{grid-template-columns:1fr}}
+.pred-head{grid-column:1/-1;font-weight:600;font-size:.9rem;color:var(--c-text);
+  padding-bottom:10px;border-bottom:1px solid var(--c-border);margin-bottom:4px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pred-row{display:flex;align-items:baseline;gap:8px}
+.pred-icon{font-size:.85rem}
+.pred-lbl{font-size:.7rem;color:var(--c-text-muted);text-transform:uppercase;letter-spacing:.04em}
+.pred-val{font-size:.84rem;font-weight:500;color:var(--c-text)}
+.irr-badge{display:inline-flex;align-items:center;gap:4px;
+  background:var(--c-warning-bg);color:var(--c-warning);
+  border-radius:var(--r-full);padding:2px 10px;font-size:.68rem;font-weight:600}
+
+/* ── Event Selection ───────────────────────────────────────────────────────── */
+.event-sel-grid{display:flex;flex-direction:column;gap:4px}
+.event-sel-item{display:flex;align-items:flex-start;gap:14px;
+  padding:16px 20px;border-radius:var(--r-lg);border:1.5px solid transparent;
+  cursor:pointer;transition:all var(--t-fast);user-select:none}
+.event-sel-item:hover{background:var(--c-bg-raised)}
+.event-sel-item.checked{background:var(--c-primary-lighter);border-color:var(--c-primary-light)}
+.event-sel-item.disabled{opacity:.6;cursor:default}
+.event-sel-item.disabled:hover{background:transparent}
+.event-sel-cb{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--c-border);
+  background:var(--c-bg-card);flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;margin-top:2px;transition:all var(--t-fast)}
+.event-sel-item.checked .event-sel-cb{background:var(--c-primary);border-color:var(--c-primary);color:#fff}
+.event-sel-item.disabled .event-sel-cb{background:var(--c-primary);border-color:var(--c-primary);color:#fff}
+.event-sel-content{flex:1}
+.event-sel-title{font-weight:500;font-size:.9rem;display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.event-sel-desc{font-size:.8rem;color:var(--c-text-muted);line-height:1.55}
+.event-sel-note{font-size:.78rem;color:var(--c-text-muted);
+  padding:12px 16px;background:var(--c-bg-raised);border-radius:var(--r-md);
+  border-left:3px solid var(--c-border);margin-top:4px;line-height:1.6}
+
+/* ── Export ────────────────────────────────────────────────────────────────── */
+.export-hero{text-align:center;padding:36px 0 28px}
+.export-hero-icon{font-size:2.8rem;margin-bottom:12px}
+.export-hero-title{font-size:1.7rem;font-weight:500;letter-spacing:-.02em;margin-bottom:8px}
+.export-hero-sub{color:var(--c-text-secondary);font-size:.9rem}
+.create-cal-box{background:var(--c-warning-bg);border:1px solid #EDD890;
+  border-radius:var(--r-xl);padding:28px 32px;margin-bottom:28px}
+.create-cal-title{font-weight:600;font-size:.95rem;color:var(--c-warning);
+  display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.create-cal-body{font-size:.875rem;color:var(--c-warning);line-height:1.7;
+  opacity:.85;margin-bottom:16px}
+.steps-list{display:flex;flex-direction:column;gap:14px}
+.step-item{display:flex;gap:14px;align-items:flex-start}
+.step-num{width:26px;height:26px;border-radius:var(--r-full);background:var(--c-primary);
+  color:#fff;font-size:.75rem;font-weight:700;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;margin-top:2px}
+.step-body{flex:1}
+.step-title{font-weight:500;font-size:.875rem;margin-bottom:3px}
+.step-desc{font-size:.8rem;color:var(--c-text-secondary);line-height:1.6}
+.copy-field{display:flex;gap:8px}
+.copy-input{flex:1;padding:10px 14px;border:1px solid var(--c-border);
+  border-radius:var(--r-md);background:var(--c-bg-raised);
+  color:var(--c-text-secondary);font-size:.78rem;font-family:var(--font-mono);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;user-select:all}
+
+/* ── Log Period Modal ──────────────────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center;z-index:200;
+  padding:16px;backdrop-filter:blur(2px)}
+.modal-box{background:var(--c-bg-card);border-radius:var(--r-xl);
+  padding:36px;width:100%;max-width:420px;border:1px solid var(--c-border);
+  animation:modalIn .22s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.96)translateY(8px)}to{opacity:1;transform:scale(1)translateY(0)}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:24px}
+.modal-title{font-weight:500;font-size:1.1rem}
+
+/* ── Collapse / Accordion ──────────────────────────────────────────────────── */
+.collapse-btn{display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;background:none;border:none;width:100%;text-align:left;
+  padding:14px 0;color:var(--c-text);font-family:var(--font)}
+.collapse-btn:hover{color:var(--c-primary)}
+.collapse-arrow{transition:transform var(--t-base);color:var(--c-text-muted);font-size:.75rem}
+.collapse-arrow.open{transform:rotate(180deg)}
+
+/* ── Tooltip ───────────────────────────────────────────────────────────────── */
+.tip-wrap{display:inline-flex;position:relative}
+.tip-btn{width:16px;height:16px;border-radius:var(--r-full);
+  background:var(--c-bg-raised);border:1px solid var(--c-border);
+  color:var(--c-text-muted);font-size:.62rem;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;cursor:help}
+.tip-box{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:var(--c-text);color:var(--c-bg);border-radius:var(--r-sm);
+  padding:8px 12px;font-size:.73rem;line-height:1.4;white-space:normal;
+  width:200px;z-index:100;pointer-events:none}
+
+/* ── Page Headers ──────────────────────────────────────────────────────────── */
+.page-hero{margin-bottom:52px;padding-bottom:44px;border-bottom:1px solid var(--c-border)}
+.page-hero-step{font-size:.72rem;font-weight:600;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--c-primary);margin-bottom:12px}
+.page-hero-title{font-size:clamp(1.6rem,5vw,2.1rem);font-weight:500;
+  letter-spacing:-.025em;line-height:1.2;color:var(--c-text);margin-bottom:14px}
+.page-hero-desc{font-size:.95rem;color:var(--c-text-secondary);
+  line-height:1.75}
+.sec-head{margin-bottom:28px}
+.sec-title{font-size:1.05rem;font-weight:500;color:var(--c-text);margin-bottom:6px}
+.sec-sub{font-size:.84rem;color:var(--c-text-muted);line-height:1.65}
+
+/* ── Misc Utilities ────────────────────────────────────────────────────────── */
+.divider{height:1px;background:var(--c-border);margin:40px 0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}
+.mt-6{margin-top:24px}.mt-8{margin-top:32px}
+.mb-2{margin-bottom:8px}.mb-3{margin-bottom:12px}.mb-4{margin-bottom:16px}
+.mb-6{margin-bottom:24px}.mb-8{margin-bottom:32px}
+.text-muted{color:var(--c-text-muted)}.text-sm{font-size:.875rem}
+.text-xs{font-size:.78rem}.font-500{font-weight:500}
+.nav{display:flex;align-items:center;justify-content:space-between;
+  gap:12px;padding-top:36px;border-top:1px solid var(--c-border);margin-top:52px}
+
+@media print{
+  .app-header,.app-footer,.nav,.btn-icon,.btn-log{display:none!important}
+  body{background:#fff;color:#000}
+  .card,.card-flat{border:1px solid #ddd}
+  .cal-d--period{background:#FFD8D4!important}
+  .cal-d--fertile{background:#CCF0D0!important}
+  .cal-d--ovulation{background:#FFE8B8!important}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
+
+/* ── Date Utilities ──────────────────────────────────────────────────────── */
+const parseDate=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+const fmtDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const addDays=(s,n)=>{const d=parseDate(s);d.setDate(d.getDate()+n);return fmtDate(d);};
+const daysBetween=(a,b)=>Math.round((parseDate(b)-parseDate(a))/864e5);
+const todayStr=()=>fmtDate(new Date());
+const isToday=s=>s===todayStr();
+const mkDate=(y,m,d)=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+const dow=s=>parseDate(s).getDay();
+const dim=(y,m)=>new Date(y,m,0).getDate();
+const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const monthName=m=>MN[m-1];
+const fmtDisp=s=>parseDate(s).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+const fmtShort=s=>parseDate(s).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+const fmtRange=(a,b)=>{
+  const da=parseDate(a),db=parseDate(b);
+  const am=da.toLocaleDateString('en-US',{month:'short'}),bm=db.toLocaleDateString('en-US',{month:'short'});
+  return am===bm?`${am} ${da.getDate()}–${db.getDate()}`:`${am} ${da.getDate()} – ${bm} ${db.getDate()}`;
+};
+const moFromNow=n=>{const d=new Date();d.setMonth(d.getMonth()+n);return fmtDate(d);};
+const minDt=()=>{const d=new Date();d.setFullYear(d.getFullYear()-10);return fmtDate(d);};
+
+/* ── Cycle Utilities ─────────────────────────────────────────────────────── */
+const SYMPTOM_TIMINGS=[
+  {value:'luteal-start',label:'Start of premenstrual phase (~2 weeks before period)'},
+  {value:'pre-7',label:'About a week before period'},
+  {value:'pre-4',label:'3–4 days before period'},
+  {value:'pre-2',label:'1–2 days before period'},
+  {value:'pre-1',label:'Day before period'},
+  {value:'day-1',label:'Day 1–2 of period (period starts)'},
+  {value:'day-3-4',label:'Days 3–4 of period'},
+  {value:'ovulation',label:'Around ovulation (mid-cycle)'},
+  {value:'ovulation-pre',label:'Day before ovulation'},
+];
+const DEFAULT_SYMPTOMS=[
+  {id:'fatigue',name:'Fatigue',icon:'😴',selected:false,timing:'pre-4'},
+  {id:'cramps',name:'Cramps / Pain',icon:'🌩️',selected:false,timing:'day-1'},
+  {id:'bloating',name:'Bloating',icon:'🫧',selected:false,timing:'pre-4'},
+  {id:'mood',name:'Mood Changes',icon:'🌊',selected:false,timing:'pre-7'},
+  {id:'ov-pain',name:'Ovulation Pain',icon:'⚡',selected:false,timing:'ovulation'},
+  {id:'headache',name:'Headaches',icon:'🤕',selected:false,timing:'pre-4'},
+  {id:'spotting',name:'Spotting',icon:'🩸',selected:false,timing:'ovulation'},
+  {id:'brainfog',name:'Brain Fog',icon:'🌫️',selected:false,timing:'pre-4'},
+  {id:'nausea',name:'Nausea',icon:'🤢',selected:false,timing:'day-1'},
+];
+const sortPeriods=ps=>[...ps].sort((a,b)=>a.startDate<b.startDate?-1:1);
+
+function calcStats(periods, manualCycleLength=28) {
+  const avgDur=periods.length>0?periods.reduce((s,p)=>s+p.duration,0)/periods.length:5;
+  const base={avgCycleLength:manualCycleLength,avgPeriodDuration:Math.round(avgDur*10)/10,
+    cycleLengths:[],stdDev:0,isIrregular:false,hasLimitedData:true,
+    minCycleLength:manualCycleLength,maxCycleLength:manualCycleLength};
+  if(periods.length<2) return base;
+  const s=sortPeriods(periods);
+  const lens=[];
+  for(let i=1;i<s.length;i++){const l=daysBetween(s[i-1].startDate,s[i].startDate);if(l>10&&l<100)lens.push(l);}
+  if(!lens.length) return base;
+  const avg=Math.round(lens.reduce((a,b)=>a+b,0)/lens.length);
+  const vari=lens.reduce((a,l)=>a+Math.pow(l-avg,2),0)/lens.length;
+  const sd=Math.sqrt(vari);
+  return{avgCycleLength:avg,avgPeriodDuration:Math.round(avgDur*10)/10,cycleLengths:lens,
+    stdDev:Math.round(sd*10)/10,isIrregular:sd>4,hasLimitedData:false,
+    minCycleLength:Math.min(...lens),maxCycleLength:Math.max(...lens)};
+}
+
+function calcRedFlags(periods,stats){
+  const flags=[];
+  if(!periods.length) return flags;
+  // Period duration consistently over 8 days
+  const longPeriods=periods.filter(p=>p.duration>8);
+  if(longPeriods.length>=2||(periods.length===1&&longPeriods.length===1)){
+    flags.push({id:'long-period',msg:"Your periods appear to be on the longer side (over 8 days). It might be worth a chat with your doctor — but this doesn't stop us predicting your cycle."});
+  }
+  // Cycle consistently shorter than 21 days
+  if(!stats.hasLimitedData&&stats.avgCycleLength<21){
+    flags.push({id:'short-cycle',msg:"Your cycles appear to be on the shorter side of typical (under 21 days). It might be worth mentioning this to your doctor — but it doesn't stop us predicting your cycle."});
+  }
+  // Cycle consistently longer than 35 days
+  if(!stats.hasLimitedData&&stats.avgCycleLength>35){
+    flags.push({id:'long-cycle',msg:"Your cycles appear to be on the longer side of typical (over 35 days). It might be worth a chat with your doctor — but it doesn't stop us predicting your cycle."});
+  }
+  return flags;
+}
+
+function symDate(timing,pStart,ovDay,cycleLength){
+  // luteal-start: scaled to cycle length — luteal phase begins ~14 days before period
+  if(timing==='luteal-start') return addDays(pStart,-Math.max(7,Math.round(cycleLength-14)));
+  if(timing==='pre-7') return addDays(pStart,-7);
+  if(timing==='pre-4') return addDays(pStart,-4);
+  if(timing==='pre-2') return addDays(pStart,-2);
+  if(timing==='pre-1') return addDays(pStart,-1);
+  if(timing==='day-1') return pStart;
+  if(timing==='day-3-4') return addDays(pStart,3);
+  if(timing==='ovulation') return addDays(ovDay,-1); // ovulation window starts 1 day before
+  if(timing==='ovulation-pre') return addDays(ovDay,-1);
+  return pStart;
+}
+// Returns how many days the symptom event spans in the exported calendar
+function symDuration(timing){
+  if(timing==='pre-4') return 2;       // 3rd–4th day before = 2 days
+  if(timing==='pre-2') return 2;       // 1st–2nd day before = 2 days
+  if(timing==='day-1') return 2;       // day 1–2 of period = 2 days
+  if(timing==='day-3-4') return 2;     // days 3–4 of period = 2 days
+  if(timing==='ovulation') return 3;   // day before + ovulation + day after = 3 days
+  return 1;                            // all others: single-day marker
+}
+
+function genPredictions(periods,stats,symptoms=[]) {
+  const s=sortPeriods(periods);
+  if(!s.length) return [];
+  const last=s[s.length-1];
+  const end=moFromNow(7);
+  const preds=[];
+  let ref=last.startDate,n=0;
+  while(n<15){
+    n++;
+    const ns=addDays(ref,stats.avgCycleLength);
+    if(ns>end) break;
+    const dur=Math.max(1,Math.round(stats.avgPeriodDuration));
+    const ov=addDays(ns,Math.max(1,stats.avgCycleLength-14));
+    preds.push({
+      cycleNum:n,periodStart:ns,periodEnd:addDays(ns,dur-1),
+      earlyStart:stats.isIrregular?addDays(ref,stats.minCycleLength):ns,
+      lateStart:stats.isIrregular?addDays(ref,stats.maxCycleLength):ns,
+      ovulationDay:ov,fertileStart:addDays(ov,-5),fertileEnd:addDays(ov,1),
+      symptoms:symptoms.filter(x=>x.selected&&x.timing)
+        .map(x=>({date:symDate(x.timing,ns,ov,stats.avgCycleLength),duration:symDuration(x.timing),name:x.name,icon:x.icon,id:x.id})),
+      isIrregular:stats.isIrregular,
+    });
+    ref=ns;
+  }
+  return preds;
+}
+
+function buildEventMap(preds,hist=[]) {
+  const map={};
+  const mark=(d,t,ex={})=>{if(!map[d])map[d]={types:new Set(),symptoms:[]};map[d].types.add(t);if(ex.s)map[d].symptoms.push(ex.s);};
+  hist.forEach(p=>{let d=p.startDate;const e=addDays(p.startDate,p.duration-1);while(d<=e){mark(d,'past');d=addDays(d,1);}});
+  preds.forEach(p=>{
+    let d=p.periodStart;while(d<=p.periodEnd){mark(d,'period');d=addDays(d,1);}
+    d=p.fertileStart;while(d<=p.fertileEnd){if(!map[d]?.types?.has('period'))mark(d,'fertile');d=addDays(d,1);}
+    if(!map[p.ovulationDay]?.types?.has('period'))mark(p.ovulationDay,'ovulation');
+    p.symptoms.forEach(x=>mark(x.date,'symptom',{s:x}));
+  });
+  return map;
+}
+
+/* ── ICS Generator ───────────────────────────────────────────────────────── */
+const fold=l=>{if(l.length<=75)return l;let r='',rem=l,f=true;while(rem.length){const c=f?75:74;r+=(f?'':'\r\n ')+rem.slice(0,c);rem=rem.slice(c);f=false;}return r;};
+const escICS=t=>String(t).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+const icsD=s=>s.replace(/-/g,'');
+const icsDE=s=>icsD(addDays(s,1));
+const dtstamp=()=>{const n=new Date(),p=x=>String(x).padStart(2,'0');return `${n.getUTCFullYear()}${p(n.getUTCMonth()+1)}${p(n.getUTCDate())}T${p(n.getUTCHours())}${p(n.getUTCMinutes())}${p(n.getUTCSeconds())}Z`;};
+const mkEvt=({uid,ds,de,sum,desc})=>['BEGIN:VEVENT',fold(`UID:${uid}@cycle-tracker`),`DTSTAMP:${dtstamp()}`,`DTSTART;VALUE=DATE:${ds}`,`DTEND;VALUE=DATE:${de}`,fold(`SUMMARY:${escICS(sum)}`),desc?fold(`DESCRIPTION:${escICS(desc)}`):'','TRANSP:TRANSPARENT','END:VEVENT'].filter(Boolean).join('\r\n');
+
+function genICS(preds, sel={period:true,symptoms:true,ovulation:false,fertile:false}) {
+  const today=todayStr();
+  const limited=preds.filter(p=>p.periodEnd>=today).slice(0,6);
+  const evts=[];
+  limited.forEach((p,i)=>{
+    if(sel.period) evts.push(mkEvt({uid:`period-${i}-${p.periodStart}`,ds:icsD(p.periodStart),de:icsDE(p.periodEnd),sum:'🔴 Period',desc:`Predicted period starting ${p.periodStart}`}));
+    if(sel.fertile) evts.push(mkEvt({uid:`fertile-${i}-${p.fertileStart}`,ds:icsD(p.fertileStart),de:icsDE(p.fertileEnd),sum:'💙 Fertile Window',desc:'Your likely fertile window.'}));
+    if(sel.ovulation) evts.push(mkEvt({uid:`ovulation-${i}-${p.ovulationDay}`,ds:icsD(p.ovulationDay),de:icsDE(p.ovulationDay),sum:'🥚 Ovulation Day',desc:'Predicted ovulation day.'}));
+    if(sel.symptoms) p.symptoms.forEach((s,j)=>evts.push(mkEvt({uid:`sym-${i}-${j}-${s.date}`,ds:icsD(s.date),de:icsD(addDays(s.date,s.duration||1)),sum:`${s.icon} ${s.name} likely`,desc:`Predicted ${s.name}.`})));
+  });
+  return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Cycle Tracker//cycle-tracker//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH',fold('X-WR-CALNAME:My Cycle'),'X-WR-TIMEZONE:UTC',...evts,'END:VCALENDAR'].join('\r\n');
+}
+
+function dlICS(preds,sel,fname='my-cycle.ics'){
+  const blob=new Blob([genICS(preds,sel)],{type:'text/calendar;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+/* ── Shared Components ───────────────────────────────────────────────────── */
+function Tip({text}){
+  const [show,setShow]=useState(false);
+  return <span className="tip-wrap">
+    <button className="tip-btn" type="button" aria-label="More info" onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)} onFocus={()=>setShow(true)} onBlur={()=>setShow(false)}>i</button>
+    {show&&<span className="tip-box" role="tooltip">{text}</span>}
+  </span>;
+}
+function Banner({type='info',icon,title,children,onDismiss}){
+  return <div className={`banner banner-${type}`} role={type==='error'?'alert':'status'} aria-live="polite">
+    {icon&&<span className="banner-icon">{icon}</span>}
+    <div className="banner-body">{title&&<div className="banner-title">{title}</div>}{children}</div>
+    {onDismiss&&<button type="button" onClick={onDismiss} style={{background:'none',border:'none',cursor:'pointer',opacity:.6,fontSize:'1rem',flexShrink:0,alignSelf:'flex-start',paddingTop:'2px'}}>×</button>}
+  </div>;
+}
+function ProgressBar({step}){
+  const steps=['Your data','Analysis','Predictions','Export'];
+  return <nav className="progress-bar" aria-label="Steps">
+    <div className="progress-steps">
+      {steps.map((lbl,i)=>{const n=i+1,done=n<step,active=n===step;return <div key={n} className="progress-step">
+        <div className={`prog-dot ${active?'active':done?'done':''}`} aria-current={active?'step':undefined}>{done?'✓':n}</div>
+        <span className={`prog-label ${active?'active':done?'done':''}`}>{lbl}</span>
+        {n<4&&<div className={`prog-line ${done?'done':''}`} aria-hidden="true"/>}
+      </div>;})}
+    </div>
+  </nav>;
+}
+function Stepper({value,onChange,min=1,max=45}){
+  return <div className="stepper">
+    <button type="button" className="stepper-btn" onClick={()=>onChange(Math.max(min,value-1))} disabled={value<=min} aria-label="Decrease">−</button>
+    <span className="stepper-val">{value} <span className="stepper-unit">{value===1?'day':'days'}</span></span>
+    <button type="button" className="stepper-btn" onClick={()=>onChange(Math.min(max,value+1))} disabled={value>=max} aria-label="Increase">+</button>
+  </div>;
+}
+
+/* ── Log Period Modal ────────────────────────────────────────────────────── */
+function LogPeriodModal({existingDates,onAdd,onClose}){
+  const [date,setDate]=useState('');
+  const [dur,setDur]=useState(5);
+  const [err,setErr]=useState('');
+  const ref=useRef(null);
+  useEffect(()=>{ref.current?.focus();},[]);
+  function submit(){
+    if(!date){setErr('Please select a date.');return;}
+    if(date>todayStr()){setErr("Can't use a future date.");return;}
+    if(existingDates.includes(date)){setErr('Already have an entry for that date.');return;}
+    onAdd(date,dur);
+  }
+  return <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div className="modal-box">
+      <div className="modal-header">
+        <h2 className="modal-title" id="modal-title">Log a new period</h2>
+        <button type="button" className="btn-icon" onClick={onClose} aria-label="Close">✕</button>
+      </div>
+      <div className="form-group mb-6">
+        <label className="form-label" htmlFor="log-date">Period start date</label>
+        <input ref={ref} type="date" id="log-date" className="form-input" value={date} onChange={e=>{setDate(e.target.value);setErr('');}} max={todayStr()} min={minDt()} onKeyDown={e=>e.key==='Enter'&&submit()}/>
+        {err&&<p style={{color:'var(--c-error)',fontSize:'.8rem'}} role="alert">{err}</p>}
+        <p className="form-hint">Day 1 is the first day of bleeding, even if light.</p>
+      </div>
+      <div className="form-group mb-8">
+        <label className="form-label" htmlFor="log-dur-g">How many days did it last?</label>
+        <Stepper value={dur} onChange={setDur} min={1} max={14}/>
+      </div>
+      <div style={{display:'flex',gap:'10px'}}>
+        <button type="button" className="btn btn-primary btn-full" onClick={submit} disabled={!date}>Add period</button>
+        <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── Model Summary Bar ───────────────────────────────────────────────────── */
+function ModelBar({stats,periods,onLog,justUpdated}){
+  const n=periods.length;
+  const cycleText=stats.hasLimitedData
+    ?`${stats.avgCycleLength} days (estimated — add more data to personalise)`
+    :stats.isIrregular
+      ?`${stats.avgCycleLength} days avg · ±${stats.stdDev}d variance · irregular`
+      :`${stats.avgCycleLength} days avg · ±${stats.stdDev}d`;
+  return <div className="model-bar">
+    <div className="model-bar-text">
+      <span className="model-bar-strong">{n} {n===1?'cycle logged':'cycles logged'}</span>
+      {' · '}Your cycle: {cycleText}
+      {justUpdated&&<span className="model-bar-updated" style={{marginLeft:'10px'}}>✨ Updated</span>}
+    </div>
+    <button type="button" className="btn-log" onClick={onLog}>+ Log period</button>
+  </div>;
+}
+
+/* ── Step 0: Landing ─────────────────────────────────────────────────────── */
+function Step0({onStart}){
+  return <div style={{maxWidth:'560px',margin:'0 auto',padding:'72px 0 60px'}}>
+    <h1 style={{fontSize:'clamp(1rem,4.8vw,2.8rem)',fontWeight:500,letterSpacing:'-.03em',lineHeight:1.1,marginBottom:'28px',color:'var(--c-text)',whiteSpace:'nowrap'}}>Your cycle, in your calendar.</h1>
+    <p style={{fontSize:'1.15rem',fontWeight:500,color:'var(--c-text)',lineHeight:1.5,marginBottom:'12px'}}>CycleSync helps you plan your life with your body, not against it.</p>
+    <p style={{fontSize:'1.05rem',color:'var(--c-text-secondary)',lineHeight:1.7,marginBottom:'52px'}}>Log your period dates and get six months of personalised predictions exported directly to Google Calendar.</p>
+    <div style={{display:'flex',flexDirection:'column',gap:'20px',marginBottom:'56px'}}>
+      {[
+        {icon:'🩸',title:'Predict your period',desc:'See exactly when your next period is likely to start, up to 6 months ahead.'},
+        {icon:'🌦️',title:'Anticipate symptom days',desc:'Know when cramps, mood changes, or fatigue are likely — before they arrive.'},
+        {icon:'📅',title:'Plan with your body',desc:'Understand your cycle so you can plan accordingly.'},
+      ].map(({icon,title,desc})=><div key={title} style={{display:'flex',gap:'16px',alignItems:'flex-start'}}>
+        <span style={{fontSize:'1.25rem',flexShrink:0,marginTop:'2px'}}>{icon}</span>
+        <div>
+          <div style={{fontWeight:500,fontSize:'.95rem',marginBottom:'4px',color:'var(--c-text)'}}>{title}</div>
+          <div style={{fontSize:'.875rem',color:'var(--c-text-secondary)',lineHeight:1.65}}>{desc}</div>
+        </div>
+      </div>)}
+    </div>
+    <button type="button" className="btn btn-primary btn-lg" onClick={onStart} style={{padding:'16px 48px',fontSize:'1rem'}}>Get started</button>
+
+    {/* Demo video */}
+    <div style={{marginTop:'72px'}}>
+      <p style={{fontSize:'.72rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--c-text-muted)',marginBottom:'16px'}}>See it in action</p>
+      <div style={{borderRadius:'16px',overflow:'hidden',border:'1px solid var(--c-border)',boxShadow:'0 4px 24px rgba(0,0,0,.07)',background:'var(--c-bg-card)'}}>
+        <video
+          src="Screenrecording.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          style={{width:'100%',display:'block',borderRadius:'16px'}}
+        />
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── Step 1: Onboarding ──────────────────────────────────────────────────── */
+function Step1({periods,symptoms,manualCycleLength,onPeriods,onSymptoms,onManualCycle,onNext,lifecycleCtx,onLifecycleCtx}){
+  const [date,setDate]=useState('');
+  const [dur,setDur]=useState(5);
+  const [err,setErr]=useState('');
+  const [cycleUnknown,setCycleUnknown]=useState(false);
+  const [otherRows,setOtherRows]=useState(()=>symptoms.filter(s=>s.isCustom).map(s=>({id:s.id,value:s.name})));
+  const sorted=sortPeriods(periods);
+  const builtInSymptoms=symptoms.filter(s=>!s.isCustom);
+
+  function addP(){
+    if(!date){setErr('Please select a date.');return;}
+    if(date>todayStr()){setErr("Can't use a future date.");return;}
+    if(periods.some(p=>p.startDate===date)){setErr('Already have an entry for that date.');return;}
+    onPeriods([...periods,{startDate:date,duration:dur}]);
+    setDate('');setDur(5);setErr('');
+  }
+  function rmP(d){onPeriods(periods.filter(p=>p.startDate!==d));}
+  function toggleSym(id){onSymptoms(symptoms.map(s=>s.id===id?{...s,selected:!s.selected}:s));}
+  function syncOther(rows){
+    const base=symptoms.filter(s=>!s.isCustom);
+    const custom=rows.filter(r=>r.value.trim()).map(r=>({id:r.id,name:r.value.trim(),icon:'◦',selected:true,timing:'pre-2',isCustom:true}));
+    onSymptoms([...base,...custom]);
+  }
+  function updateOther(id,value){const nr=otherRows.map(r=>r.id===id?{...r,value}:r);setOtherRows(nr);syncOther(nr);}
+  function addOther(){setOtherRows(r=>[...r,{id:'custom-'+Date.now(),value:''}]);}
+  function removeOther(id){const nr=otherRows.filter(r=>r.id!==id);setOtherRows(nr);syncOther(nr);}
+  function toggleOther(){if(otherRows.length>0){setOtherRows([]);syncOther([]);}else addOther();}
+  function setTiming(id,timing){onSymptoms(symptoms.map(s=>s.id===id?{...s,timing}:s));}
+
+  return <div>
+    <div className="page-hero">
+      <p className="page-hero-step">01 / 04</p>
+      <h1 className="page-hero-title">Tell us about your cycle</h1>
+      <p className="page-hero-desc">Enter your last 3–6 period start dates for the most accurate predictions. The more data you add, the better your forecast.</p>
+      <span style={{display:'inline-flex',alignItems:'center',gap:'6px',marginTop:'20px',fontSize:'.78rem',color:'var(--c-text-muted)',background:'var(--c-bg-raised)',padding:'5px 12px',borderRadius:'var(--r-full)',border:'1px solid var(--c-border)'}}>🔒 Your data is saved privately on this device — it never leaves your browser</span>
+    </div>
+
+    <div className="sec-head">
+      <h2 className="sec-title">Period start dates <span style={{fontSize:'.78rem',fontWeight:400,color:'var(--c-text-muted)'}}>({periods.length}/6)</span></h2>
+      <p className="sec-sub">Day 1 is the first day you bleed — even if it's light. Not the day before, and not when spotting starts.</p>
+    </div>
+
+    {periods.length<6&&<div style={{display:'flex',flexDirection:'column',gap:'20px',marginBottom:'24px',paddingBottom:'24px',borderBottom:'1px solid var(--c-border)'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:'16px',alignItems:'end'}}>
+        <div className="form-group">
+          <label className="form-label" htmlFor="pd">Period start date <Tip text="Day 1 is the first day you bleed — not the day before, and not when spotting starts. Even if bleeding is light, if it's your period, that's Day 1."/></label>
+          <input type="date" id="pd" className="form-input" value={date} onChange={e=>{setDate(e.target.value);setErr('');}} max={todayStr()} min={minDt()} onKeyDown={e=>e.key==='Enter'&&addP()} aria-describedby={err?'pd-err':undefined}/>
+          {err&&<p id="pd-err" style={{color:'var(--c-error)',fontSize:'.8rem'}} role="alert">{err}</p>}
+        </div>
+        <div className="form-group">
+          <label className="form-label">How many days?</label>
+          <Stepper value={dur} onChange={setDur} min={1} max={14}/>
+        </div>
+      </div>
+      {dur>10&&<Banner type="info" icon="💡">Periods longer than 10 days are on the longer side — it might be worth mentioning to your doctor at some point. We'll still add this entry.</Banner>}
+      <button type="button" className="btn btn-primary btn-sm" onClick={addP} disabled={!date} style={{alignSelf:'flex-start'}}>+ Add period</button>
+    </div>}
+
+    {sorted.length>0&&<div className="period-list mb-8">
+      {sorted.map(p=><div key={p.startDate} className="period-item">
+        <div className="period-item-dot" aria-hidden="true"/>
+        <div className="period-item-info">
+          <div className="period-item-date">{fmtDisp(p.startDate)}</div>
+          <div className="period-item-dur">{p.duration} {p.duration===1?'day':'days'}</div>
+        </div>
+        <button type="button" className="btn btn-danger" onClick={()=>rmP(p.startDate)} aria-label={`Remove ${fmtDisp(p.startDate)}`}>Remove</button>
+      </div>)}
+    </div>}
+
+    {periods.length===0&&<div className="mb-8"><Banner type="info" icon="💡">Add at least one period date to continue. Don't worry if you're not sure — we'll work with whatever you have.</Banner></div>}
+
+    {/* Cycle length input — shown when exactly 1 period entered */}
+    {periods.length===1&&<div className="cycle-len-box mb-8">
+      <h3>About your cycle length</h3>
+      <p style={{fontSize:'.875rem',color:'var(--c-text-secondary)',marginTop:'6px',lineHeight:'1.7'}}>Since you've entered one period date, we need a rough idea of your cycle length to start making predictions. You can update this any time.</p>
+      <div className="cycle-day-explainer">
+        <strong>Day 1 of your cycle</strong> is the first day your period starts — not when it ends.<br/>
+        So if your period started <strong>March 1</strong>, that's Day 1. If your next period starts <strong>March 29</strong>, your cycle is <strong>28 days</strong>.<br/><br/>
+        Most people's cycles are somewhere between <strong>21 and 35 days</strong>. Only about 1 in 6 people actually have a 28-day cycle — so whatever yours is, it's probably normal.
+      </div>
+      {!cycleUnknown
+        ?<div>
+          <label className="form-label mb-3" htmlFor="cyc-len-grp">My cycle is usually about:</label>
+          <Stepper value={manualCycleLength} onChange={v=>{onManualCycle(v);}} min={15} max={50}/>
+          <p className="form-hint mt-3">Typical range is 21–35 days. Your predictions will get more accurate as you log more periods.</p>
+          <button type="button" className="btn btn-ghost btn-sm mt-3" onClick={()=>{setCycleUnknown(true);onManualCycle(28);}}>I'm not sure — use 28 days as a starting point</button>
+        </div>
+        :<div>
+          <p style={{fontSize:'.9rem',color:'var(--c-text-secondary)',marginBottom:'12px'}}>Starting with <strong>28 days</strong> — a reasonable default to get us going. As you log more periods, your actual cycle length will be used automatically.</p>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={()=>setCycleUnknown(false)}>Set it manually →</button>
+        </div>}
+    </div>}
+
+    {/* Symptoms */}
+    <div style={{marginTop:'48px'}}>
+      <div className="sec-head">
+        <h2 className="sec-title">Symptoms <span style={{fontSize:'.78rem',fontWeight:400,color:'var(--c-text-muted)'}}>Optional</span></h2>
+        <p className="sec-sub">Many people notice symptoms like fatigue, mood changes, or bloating in the 1–2 weeks before their period — tied to the luteal (premenstrual) phase. Select what fits your experience and choose when it typically starts.</p>
+      </div>
+      <fieldset style={{border:'none',padding:0}}>
+        <legend className="sr-only">Select symptoms</legend>
+        <div className="sym-grid">
+          {builtInSymptoms.map(s=><div key={s.id}>
+            <label className={`sym-check ${s.selected?'checked':''}`}>
+              <input type="checkbox" checked={s.selected} onChange={()=>toggleSym(s.id)}/>
+              <span aria-hidden="true">{s.icon}</span>{s.name}
+            </label>
+            {s.selected&&<select className="sym-timing-sel" value={s.timing||'pre-2'} onChange={e=>setTiming(s.id,e.target.value)} aria-label={`When do you typically experience ${s.name}?`}>
+              {SYMPTOM_TIMINGS.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>}
+          </div>)}
+          <div>
+            <label className={`sym-check ${otherRows.length>0?'checked':''}`}>
+              <input type="checkbox" checked={otherRows.length>0} onChange={toggleOther}/>
+              <span aria-hidden="true">✏️</span>Other
+            </label>
+          </div>
+        </div>
+      </fieldset>
+      {otherRows.length>0&&<div style={{marginTop:'16px',display:'flex',flexDirection:'column',gap:'10px'}}>
+        {otherRows.map((row,i)=><div key={row.id} style={{display:'flex',gap:'8px',alignItems:'center'}}>
+          <input type="text" className="sym-other-input" value={row.value} onChange={e=>updateOther(row.id,e.target.value)} placeholder="Describe your symptom" autoFocus={i===otherRows.length-1&&!row.value}/>
+          {otherRows.length>1&&<button type="button" className="btn btn-ghost btn-sm" onClick={()=>removeOther(row.id)} aria-label="Remove" style={{flexShrink:0}}>×</button>}
+        </div>)}
+        <button type="button" style={{alignSelf:'flex-start',background:'none',border:'none',color:'var(--c-primary)',fontSize:'.84rem',fontWeight:500,cursor:'pointer',padding:0}} onClick={addOther}>+ Add another</button>
+      </div>}
+    </div>
+
+    {/* Lifecycle context — optional */}
+    <div style={{marginTop:'48px',paddingTop:'32px',borderTop:'1px solid var(--c-border)'}}>
+      <div className="sec-head">
+        <h2 className="sec-title">Is anything affecting your cycle right now? <span style={{fontSize:'.78rem',fontWeight:400,color:'var(--c-text-muted)'}}>Optional</span></h2>
+        <p className="sec-sub">This helps us give you a more relevant experience. Select all that apply — or skip entirely.</p>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+        {[
+          {value:'postpartum',label:"I've recently had a baby"},
+          {value:'breastfeeding',label:"I'm breastfeeding"},
+          {value:'recent-contraception',label:"I've recently stopped hormonal contraception"},
+          {value:'perimenopause',label:"I'm in perimenopause / my cycle has become unpredictable"},
+          {value:'pcos',label:"I have PCOS or another hormonal condition"},
+        ].map(opt=>{
+          const checked=lifecycleCtx.includes(opt.value);
+          return <label key={opt.value} className={`sym-check ${checked?'checked':''}`} style={{borderRadius:'var(--r-md)'}}>
+            <input type="checkbox" checked={checked} onChange={()=>{
+              const next=checked?lifecycleCtx.filter(v=>v!==opt.value):[...lifecycleCtx,opt.value];
+              onLifecycleCtx(next);
+            }}/>
+            {opt.label}
+          </label>;
+        })}
+      </div>
+    </div>
+
+    <div className="nav">
+      <span style={{fontSize:'.8rem',color:'var(--c-text-muted)'}}>{periods.length>0?`${periods.length} period${periods.length===1?'':'s'} added`:'Add at least one period to continue'}</span>
+      <button type="button" className="btn btn-primary" onClick={onNext} disabled={periods.length===0}>Analyse my cycle →</button>
+    </div>
+  </div>;
+}
+
+/* ── Step 2: Analysis ────────────────────────────────────────────────────── */
+function Step2({periods,stats,onBack,onNext,onLog,justUpdated,redFlags,lifecycleCtx}){
+  const s=sortPeriods(periods);
+  const last=s[s.length-1];
+  const ns=addDays(last.startDate,stats.avgCycleLength);
+  const ne=addDays(ns,Math.round(stats.avgPeriodDuration)-1);
+  const early=stats.isIrregular?addDays(last.startDate,stats.minCycleLength):null;
+  const late=stats.isIrregular?addDays(last.startDate,stats.maxCycleLength):null;
+
+  return <div>
+    <div className="page-hero">
+      <p className="page-hero-step">02 / 04</p>
+      <h1 className="page-hero-title">Here's what we found</h1>
+      <p className="page-hero-desc">Based on {periods.length===1?'your entry':`your ${periods.length} period entries`}, here's what your cycle looks like.</p>
+    </div>
+
+    <ModelBar stats={stats} periods={periods} onLog={onLog} justUpdated={justUpdated}/>
+
+    <div className="stats-grid mb-8">
+      {[
+        {icon:'🔄',val:stats.avgCycleLength,unit:'days',lbl:'Your cycle length',color:'var(--c-primary)'},
+        {icon:'🩸',val:stats.avgPeriodDuration,unit:'days',lbl:'Avg period duration'},
+        {icon:stats.isIrregular?'〰️':'〜',val:stats.isIrregular?'Variable':'Fairly regular',lbl:'Cycle pattern',color:stats.isIrregular?'var(--c-text-secondary)':'var(--c-fertile)'},
+        ...(!stats.hasLimitedData?[{icon:'📊',val:`±${stats.stdDev}`,unit:'d',lbl:'Variation between cycles'}]:[]),
+      ].map((x,i)=><div key={i} className="stat-card">
+        <div className="stat-icon">{x.icon}</div>
+        <div className="stat-val" style={x.color?{color:x.color}:{}}>{x.val}{x.unit&&<span style={{fontSize:'.8em',fontWeight:500,marginLeft:'3px'}}>{x.unit}</span>}</div>
+        <div className="stat-lbl">{x.lbl}</div>
+      </div>)}
+    </div>
+
+    {stats.hasLimitedData&&<div className="mb-6"><Banner type="info" icon="📌" title="Building your picture">We're working with limited data, so predictions are based on your input for now. Each period you log makes your forecast more personal and accurate.</Banner></div>}
+    {stats.isIrregular&&<div className="mb-6"><Banner type="neutral" icon="〰️" title="Your cycle varies — that's fine">Cycles vary between people, and yours changes a bit between cycles (variation: {stats.stdDev}d). This is common and completely normal. We'll show date <em>ranges</em> rather than fixed dates, so you can see a realistic window.</Banner></div>}
+
+    {/* Lifecycle context notes */}
+    {lifecycleCtx&&lifecycleCtx.includes('postpartum')&&<div className="mb-6"><Banner type="info" icon="👶" title="Postpartum cycles">Cycles can take a while to settle after pregnancy — your first few predictions may be less accurate until we have more data. Log periods as they return and your forecast will improve quickly.</Banner></div>}
+    {lifecycleCtx&&lifecycleCtx.includes('breastfeeding')&&<div className="mb-6"><Banner type="info" icon="🤱" title="Breastfeeding">Periods may not return until breastfeeding reduces — and when they do, they might be irregular at first. That's normal. Log each one and we'll build your picture over time.</Banner></div>}
+    {lifecycleCtx&&lifecycleCtx.includes('recent-contraception')&&<div className="mb-6"><Banner type="info" icon="💊" title="After hormonal contraception">It can take up to 3 months for your cycle to return to its natural pattern after stopping hormonal contraception. Your first few predictions may be less accurate — they'll improve as you log more data.</Banner></div>}
+    {lifecycleCtx&&lifecycleCtx.includes('perimenopause')&&<div className="mb-6"><Banner type="info" icon="🌿" title="Perimenopause">Cycles often become less predictable during perimenopause — that's completely normal. We'll show you ranges rather than fixed dates and update as you log more data.</Banner></div>}
+    {lifecycleCtx&&lifecycleCtx.includes('pcos')&&<div className="mb-6"><Banner type="info" icon="🔍" title="PCOS or hormonal condition">Cycles with PCOS or similar conditions are often more variable. We'll use your actual data to build predictions — the more you log, the more useful your forecast becomes.</Banner></div>}
+
+    {/* Red flag gentle prompts */}
+    {redFlags&&redFlags.map(f=><div key={f.id} className="mb-4"><Banner type="neutral" icon="💬">{f.msg}</Banner></div>)}
+
+    {!stats.hasLimitedData&&<div className="card mb-6">
+      <h2 className="sec-title mb-4">Your recorded cycle lengths</h2>
+      <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'14px'}}>
+        {stats.cycleLengths.map((l,i)=><span key={i} style={{background:'var(--c-bg-raised)',border:'1px solid var(--c-border)',borderRadius:'var(--r-full)',padding:'5px 14px',fontSize:'.875rem',fontWeight:500,color:'var(--c-text-secondary)'}}>{l} days</span>)}
+      </div>
+      <p className="text-xs text-muted">Measured between consecutive period start dates. The typical range is 21–35 days — only about 1 in 6 people have exactly a 28-day cycle.</p>
+    </div>}
+
+    <div className="card mb-6">
+      <h2 className="sec-title mb-4">Your next predicted period</h2>
+      {stats.isIrregular
+        ?<><p style={{fontSize:'1.2rem',fontWeight:600,color:'var(--c-primary)',marginBottom:'8px'}}>Expected between {fmtDisp(early)} and {fmtDisp(late)}</p><p className="text-sm text-muted">Window based on your shortest ({stats.minCycleLength}d) and longest ({stats.maxCycleLength}d) recorded cycles.</p></>
+        :<><p style={{fontSize:'1.2rem',fontWeight:600,color:'var(--c-primary)',marginBottom:'8px'}}>{fmtDisp(ns)}</p><p className="text-sm text-muted">Expected to last around {Math.round(stats.avgPeriodDuration)} days, ending around {fmtDisp(ne)}.</p></>}
+    </div>
+
+    <div className="card-flat mb-6">
+      <h2 className="sec-title mb-4" style={{fontSize:'.95rem'}}>How predictions are calculated</h2>
+      {[
+        {i:'🔴',t:'Period days',d:`Based on your ${stats.avgCycleLength}-day cycle average. Your predictions update automatically each time you log a new period.`},
+        {i:'💙',t:'Fertile window',d:'The 5–6 days centred on your estimated ovulation day — when conception is most likely if that\'s relevant to you.'},
+        {i:'🥚',t:'Ovulation estimate',d:`Ovulation usually happens around ${stats.avgCycleLength-14} days into your cycle — but it can vary by up to 10 days, so treat this as an estimate.`},
+        {i:'⚡',t:'Symptom reminders',d:'Timed based on the phase you selected — premenstrual, menstruation, or around ovulation. Scaled to your actual cycle length.'},
+      ].map(x=><div key={x.t} style={{display:'flex',gap:'14px',marginBottom:'16px'}}>
+        <span style={{fontSize:'1.1rem',flexShrink:0}}>{x.i}</span>
+        <div><div style={{fontWeight:500,fontSize:'.875rem',marginBottom:'2px'}}>{x.t}</div><div style={{fontSize:'.8rem',color:'var(--c-text-muted)',lineHeight:'1.6'}}>{x.d}</div></div>
+      </div>)}
+      <p style={{fontSize:'.73rem',color:'var(--c-text-muted)',borderTop:'1px solid var(--c-border)',paddingTop:'14px',marginTop:'8px',lineHeight:'1.65'}}>CycleSync is a tool for understanding your own patterns — not a medical device. Predictions are estimates. Speak to a healthcare provider for any medical concerns.</p>
+    </div>
+
+    <div className="nav">
+      <button type="button" className="btn btn-ghost" onClick={onBack}>← Back</button>
+      <button type="button" className="btn btn-primary" onClick={onNext}>See my predictions →</button>
+    </div>
+  </div>;
+}
+
+/* ── Month Calendar ──────────────────────────────────────────────────────── */
+const DAY_NAMES=['Su','Mo','Tu','We','Th','Fr','Sa'];
+function MonthCal({year,month,eventMap}){
+  const fdow=dow(mkDate(year,month,1));
+  const nd=dim(year,month);
+  const cells=[];
+  for(let i=0;i<fdow;i++) cells.push(<div key={`e${i}`} className="cal-d cal-d--empty" aria-hidden="true"/>);
+  for(let day=1;day<=nd;day++){
+    const ds=mkDate(year,month,day);
+    const ev=eventMap[ds]||{types:new Set(),symptoms:[]};
+    const T=ev.types;
+    const ip=T.has('period'),if2=T.has('fertile')&&!ip,io=T.has('ovulation')&&!ip,ipt=T.has('past'),isSym=T.has('symptom')&&!ip&&!io&&!if2&&!ipt;
+    let cls='cal-d';
+    if(ip) cls+=' cal-d--period';
+    else if(io) cls+=' cal-d--ovulation';
+    else if(if2) cls+=' cal-d--fertile';
+    else if(ipt) cls+=' cal-d--past';
+    else if(isSym) cls+=' cal-d--symptom';
+    const td=isToday(ds);
+    const parts=[];
+    if(ip) parts.push('Period');if(io) parts.push('Ovulation');if(if2) parts.push('Fertile window');if(ipt) parts.push('Past period');
+    ev.symptoms.forEach(s=>parts.push(`${s.name} likely`));
+    cells.push(<div key={ds} className={cls} title={parts.join('\n')||undefined} aria-label={`${day}${parts.length?' — '+parts.join(', '):''}` }>
+      <span className={`cal-d-num${td?' cal-d-num-today':''}`}>{day}</span>
+      {io&&<span className="cal-d-ov-dot" aria-hidden="true"/>}
+      {ev.symptoms.length>0&&<div className="cal-d-syms" aria-hidden="true">{ev.symptoms.slice(0,2).map((s,i)=><span key={i} className="cal-d-sym">{s.icon}</span>)}</div>}
+    </div>);
+  }
+  return <div className="month-cal">
+    <h3 className="month-cal-title">{monthName(month)} {year}</h3>
+    <div className="cal-grid" role="grid">
+      {DAY_NAMES.map(n=><div key={n} className="cal-dn" role="columnheader">{n}</div>)}
+      {cells}
+    </div>
+  </div>;
+}
+
+/* ── Event Selection ─────────────────────────────────────────────────────── */
+function EventSelection({sel,onChange,hasSymptoms}){
+  function toggle(key){onChange({...sel,[key]:!sel[key]});}
+  const items=[
+    {key:'period',icon:'🔴',title:'Period days',desc:'When your period is expected. Multi-day events spanning each predicted period.'},
+    ...(hasSymptoms?[{key:'symptoms',icon:'⚡',title:'Symptom reminders',desc:'Single-day reminders based on your typical pattern — fatigue, cramps, and any others you selected.'}]:[]),
+    {key:'ovulation',icon:'🥚',title:'Ovulation day',desc:'The day you\'re most likely to ovulate.',conception:true},
+    {key:'fertile',icon:'💙',title:'Fertile window',desc:'The days around ovulation when conception is most possible.',conception:true},
+  ];
+  const noneSelected=!Object.values(sel).some(Boolean);
+  return <div>
+    <div className="sec-head">
+      <h2 className="sec-title">What to include in your calendar</h2>
+      <p className="sec-sub">Choose which events appear when you export. All types are optional — you can always re-export with different settings.</p>
+    </div>
+    <div className="event-sel-grid mb-4">
+      {items.map(item=>{
+        const checked=!!sel[item.key];
+        return <div key={item.key} className={`event-sel-item ${checked?'checked':''}`} onClick={()=>toggle(item.key)} role="checkbox" aria-checked={checked} tabIndex={0} onKeyDown={e=>(e.key===' '||e.key==='Enter')&&toggle(item.key)}>
+          <div className="event-sel-cb" aria-hidden="true">{checked&&'✓'}</div>
+          <div className="event-sel-content">
+            <div className="event-sel-title">{item.icon} {item.title}</div>
+            <div className="event-sel-desc">{item.desc}</div>
+          </div>
+        </div>;
+      })}
+    </div>
+    {noneSelected&&<div className="banner banner-warning" style={{marginBottom:'8px'}}><span className="banner-icon">⚠️</span><div className="banner-body">No event types selected — choose at least one to export.</div></div>}
+    {(sel.ovulation||sel.fertile)&&!noneSelected&&<div className="event-sel-note">💡 Ovulation and fertile window are most relevant if you're trying to conceive or want to track your fertility. Skip these if that's not relevant to you right now.</div>}
+    {!sel.ovulation&&!sel.fertile&&!noneSelected&&<div className="event-sel-note text-muted">Ovulation and fertile window events are not selected. Tick them above if you're interested in tracking fertility.</div>}
+  </div>;
+}
+
+/* ── Step 3: Predictions ─────────────────────────────────────────────────── */
+function Step3({predictions,stats,histPeriods,sel,onSel,onBack,onNext,onRegen,onLog,justUpdated,onEditData}){
+  const [view,setView]=useState('calendar');
+  const [exportErr,setExportErr]=useState('');
+  const eventMap=buildEventMap(predictions,histPeriods);
+  const t=todayStr();
+  const [ty,tm]=t.split('-').map(Number);
+  const months=[];
+  for(let i=0;i<7;i++){let mo=tm+i,yr=ty;while(mo>12){mo-=12;yr++;}months.push({year:yr,month:mo});}
+  const hasSym=predictions.some(p=>p.symptoms.length>0);
+
+  return <div>
+    <div className="page-hero">
+      <p className="page-hero-step">03 / 04</p>
+      <h1 className="page-hero-title">Your next 6 months</h1>
+      <p className="page-hero-desc">{stats.isIrregular?'Your cycle is irregular, so we show date ranges rather than fixed dates. Predictions get more accurate as you log more data.':` Based on your ${stats.avgCycleLength}-day average cycle.`}</p>
+    </div>
+
+    <ModelBar stats={stats} periods={histPeriods} onLog={onLog} justUpdated={justUpdated}/>
+
+    {stats.isIrregular&&<div className="mb-6"><Banner type="warning" icon="〰️" title="Irregular cycle">Showing windows based on your recorded range ({stats.minCycleLength}–{stats.maxCycleLength} days). If your cycle is very unpredictable, speaking with a doctor about conditions like PCOS might be helpful.</Banner></div>}
+
+    <div style={{display:'flex',gap:'8px',marginBottom:'24px',flexWrap:'wrap'}}>
+      <button type="button" className={`btn btn-sm ${view==='calendar'?'btn-primary':'btn-secondary'}`} onClick={()=>setView('calendar')} aria-pressed={view==='calendar'}>📅 Calendar</button>
+      <button type="button" className={`btn btn-sm ${view==='list'?'btn-primary':'btn-secondary'}`} onClick={()=>setView('list')} aria-pressed={view==='list'}>📋 List</button>
+      <button type="button" className="btn btn-sm btn-ghost" onClick={onRegen} style={{marginLeft:'auto'}}>↻ Regenerate</button>
+    </div>
+
+    {view==='calendar'&&<>
+      <div className="cal-legend mb-4">
+        {[['leg-dot--period','🔴 Period'],['leg-dot--fertile','💙 Fertile window'],['leg-dot--ovulation','🥚 Ovulation'],['leg-dot--past','Past period'],...(hasSym?[['leg-dot--symptom','⚡ Symptoms']]:[])]
+          .map(([c,l])=><div key={c} className="leg-item"><div className={`leg-dot ${c}`} aria-hidden="true"/><span>{l}</span></div>)}
+      </div>
+      <div className="calendar-months">{months.map(({year,month})=><MonthCal key={`${year}-${month}`} year={year} month={month} eventMap={eventMap}/>)}</div>
+    </>}
+
+    {view==='list'&&<div className="pred-list">
+      {predictions.map((p,i)=><div key={i} className="pred-item">
+        <div className="pred-head"><span style={{color:'var(--c-primary)'}}>🔴</span>
+          {p.isIrregular?<>Expected {fmtShort(p.earlyStart)} – {fmtShort(p.lateStart)}<span className="irr-badge">〰️ Range</span></>:`Period ${fmtShort(p.periodStart)} – ${fmtShort(p.periodEnd)}`}
+        </div>
+        <div className="pred-row"><span className="pred-icon">💙</span><div><div className="pred-lbl">Fertile window</div><div className="pred-val">{fmtRange(p.fertileStart,p.fertileEnd)}</div></div></div>
+        <div className="pred-row"><span className="pred-icon">🥚</span><div><div className="pred-lbl">Ovulation</div><div className="pred-val">{fmtShort(p.ovulationDay)}</div></div></div>
+        {p.symptoms.length>0&&<div className="pred-row" style={{gridColumn:'1/-1'}}><span className="pred-icon">⚡</span><div><div className="pred-lbl">Symptom reminders</div><div className="pred-val" style={{fontWeight:400,fontSize:'.8rem'}}>{p.symptoms.map(s=>`${s.icon} ${s.name} (${fmtShort(s.date)})`).join(' · ')}</div></div></div>}
+      </div>)}
+    </div>}
+
+    <p style={{marginTop:'16px',textAlign:'center',fontSize:'.78rem',color:'var(--c-text-muted)'}}>{predictions.length} cycles · {predictions.reduce((a,p)=>a+p.symptoms.length,0)} symptom reminders</p>
+
+    {/* Event selection */}
+    <EventSelection sel={sel} onChange={onSel} hasSymptoms={hasSym}/>
+
+    {exportErr&&<p style={{color:'var(--c-error)',fontSize:'.84rem',textAlign:'right',marginBottom:'8px'}} role="alert">{exportErr}</p>}
+    <div className="nav">
+      <button type="button" className="btn btn-ghost" onClick={onBack}>← Back</button>
+      <div style={{display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap',justifyContent:'flex-end'}}>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onEditData}>✏️ Edit my data</button>
+        <button type="button" className="btn btn-primary btn-lg" onClick={()=>{if(!Object.values(sel).some(Boolean)){setExportErr('Select at least one event type to export.');return;}setExportErr('');onNext();}}>Export to calendar →</button>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ── Create Calendar Guide ────────────────────────────────────────────────── */
+function CreateCalGuide(){
+  const [show,setShow]=useState(false);
+  const [tab,setTab]=useState('desktop');
+  return <div className="create-cal-box">
+    <div className="create-cal-title">💡 Create a new calendar before importing (recommended)</div>
+    <p className="create-cal-body">Adding your cycle events to a dedicated calendar (e.g. "My Cycle") means you can show or hide all of them in one click — just tick or untick the calendar in the sidebar. If you import into your main calendar, you'd have to delete events one by one.</p>
+    <button type="button" className="collapse-btn" style={{padding:'10px 0',color:'var(--c-warning)'}} onClick={()=>setShow(v=>!v)} aria-expanded={show}>
+      <span style={{fontWeight:500,fontSize:'.875rem'}}>How to create a new calendar in Google Calendar</span>
+      <span className={`collapse-arrow ${show?'open':''}`} aria-hidden="true">▼</span>
+    </button>
+    {show&&<div style={{marginTop:'4px'}}>
+      <div style={{display:'flex',gap:'8px',marginBottom:'20px'}}>
+        {['desktop','mobile'].map(t=><button key={t} type="button" className={`btn btn-sm ${tab===t?'btn-primary':'btn-secondary'}`} onClick={()=>setTab(t)} style={{fontSize:'.78rem'}}>{t==='desktop'?'🖥 Desktop':'📱 Mobile'}</button>)}
+      </div>
+      {tab==='desktop'&&<div className="steps-list">
+        {[
+          {t:'Open Google Calendar in a browser',d:'Go to calendar.google.com and sign in.'},
+          {t:'Find "Other calendars" in the left sidebar',d:'Look for the + icon next to "Other calendars" at the bottom of the sidebar.'},
+          {t:'Click the + icon and select "Create new calendar"'},
+          {t:'Name it "My Cycle" (or anything you like)',d:'You can also set a colour — try pink or red to keep it intuitive.'},
+          {t:'Click "Create calendar"',d:'It will appear in your sidebar. Now come back here and follow the import steps.'},
+        ].map((s,i)=><div key={i} className="step-item"><div className="step-num" style={{background:'var(--c-warning)',color:'#fff'}}>{i+1}</div><div className="step-body"><div className="step-title" style={{color:'var(--c-warning)'}}>{s.t}</div>{s.d&&<div className="step-desc" style={{color:'var(--c-warning)',opacity:.8}}>{s.d}</div>}</div></div>)}
+      </div>}
+      {tab==='mobile'&&<div className="steps-list">
+        {[
+          {t:'Open the Google Calendar app'},
+          {t:'Tap the ☰ menu in the top-left corner'},
+          {t:'Scroll down and tap "Create new calendar"'},
+          {t:'Name it "My Cycle" and tap Done',d:'Note: creating calendars on mobile may require signing in to calendar.google.com on a browser first.'},
+        ].map((s,i)=><div key={i} className="step-item"><div className="step-num" style={{background:'var(--c-warning)',color:'#fff'}}>{i+1}</div><div className="step-body"><div className="step-title" style={{color:'var(--c-warning)'}}>{s.t}</div>{s.d&&<div className="step-desc" style={{color:'var(--c-warning)',opacity:.8}}>{s.d}</div>}</div></div>)}
+      </div>}
+    </div>}
+  </div>;
+}
+
+/* ── Copy Field ──────────────────────────────────────────────────────────── */
+function CopyField({value,label}){
+  const [copied,setCopied]=useState(false);
+  async function copy(){try{await navigator.clipboard.writeText(value);}catch{const el=document.getElementById(`cf-${label}`);if(el){el.select();document.execCommand('copy');}}setCopied(true);setTimeout(()=>setCopied(false),2500);}
+  return <div className="copy-field">
+    <input id={`cf-${label}`} className="copy-input" readOnly value={value} aria-label={label} onFocus={e=>e.target.select()}/>
+    <button type="button" className={`btn btn-sm ${copied?'btn-fertile':'btn-secondary'}`} onClick={copy}>{copied?'✓ Copied':'Copy'}</button>
+  </div>;
+}
+
+/* ── Google Calendar Sync ────────────────────────────────────────────────── */
+const GCAL_CLIENT_ID='219286431546-35o3bvc31i049mcbt1u5ipertmmpmndm.apps.googleusercontent.com';
+
+function GCalSync({existingDates,onImport}){
+  const [open,setOpen]=useState(false);
+  const [status,setStatus]=useState('idle'); // idle|auth|loading|results
+  const [events,setEvents]=useState([]);
+  const [sel2,setSel2]=useState({});
+  const [err,setErr]=useState('');
+  const isFile=window.location.protocol==='file:';
+
+  async function connect(){
+    if(typeof google==='undefined'||!google?.accounts?.oauth2){setErr('Google sign-in script not loaded. Check your internet connection and refresh the page.');return;}
+    setStatus('auth');setErr('');
+    try{
+      const tc=google.accounts.oauth2.initTokenClient({
+        client_id:GCAL_CLIENT_ID,
+        scope:'https://www.googleapis.com/auth/calendar.readonly',
+        callback:(resp)=>{
+          if(resp.error){setErr(`Authorisation failed: ${resp.error}`);setStatus('idle');return;}
+          fetchEvents(resp.access_token);
+        },
+        error_callback:(e2)=>{setErr(`Sign-in error: ${e2.message||e2.type||'unknown'}`);setStatus('idle');}
+      });
+      tc.requestAccessToken({prompt:'consent'});
+    }catch(e){setErr(`Could not start sign-in: ${e.message}`);setStatus('idle');}
+  }
+
+  async function fetchEvents(token){
+    setStatus('loading');
+    try{
+      const calR=await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList',{headers:{Authorization:`Bearer ${token}`}});
+      const calD=await calR.json();
+      if(!calR.ok) throw new Error(calD.error?.message||'Could not list calendars');
+      const allEvts=[];
+      for(const cal of (calD.items||[])){
+        try{
+          const r=await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?q=${encodeURIComponent('period OR menstrual OR cycle')}&maxResults=100&singleEvents=true&orderBy=startTime&timeMin=2015-01-01T00:00:00Z`,{headers:{Authorization:`Bearer ${token}`}});
+          if(!r.ok) continue;
+          const d=await r.json();
+          (d.items||[]).forEach(e=>allEvts.push({...e,calName:cal.summary}));
+        }catch{}
+      }
+      const kw=/period|menstrual|🔴|day\s*1\s*(of|period)/i;
+      const parsed=allEvts
+        .filter(e=>e.summary&&kw.test(e.summary))
+        .map(e=>({id:e.id,title:e.summary,date:(e.start?.date||e.start?.dateTime?.slice(0,10)),cal:e.calName}))
+        .filter(e=>e.date&&e.date>='2015-01-01')
+        .filter(e=>!existingDates.includes(e.date));
+      const seen=new Set(),uniq=[];
+      parsed.forEach(e=>{if(!seen.has(e.date)){seen.add(e.date);uniq.push(e);}});
+      uniq.sort((a,b)=>a.date<b.date?-1:1);
+      setEvents(uniq);
+      const s={};uniq.forEach(e=>{s[e.id]=true;});setSel2(s);
+      setStatus('results');
+    }catch(e){setErr(`Error fetching events: ${e.message}`);setStatus('idle');}
+  }
+
+  function doImport(){
+    const chosen=events.filter(e=>sel2[e.id]);
+    if(!chosen.length){setErr('Select at least one event to import.');return;}
+    onImport(chosen);setOpen(false);
+  }
+
+  const numChosen=Object.values(sel2).filter(Boolean).length;
+
+  return <div className="card mb-4">
+    <button type="button" className="collapse-btn" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>
+      <div>
+        <div className="sec-title" style={{marginBottom:'4px'}}>🔄 Import from Google Calendar</div>
+        <p className="sec-sub" style={{fontWeight:400}}>Find existing period events and add them as cycle data</p>
+      </div>
+      <span className={`collapse-arrow ${open?'open':''}`} aria-hidden="true">▼</span>
+    </button>
+    {open&&<div style={{paddingTop:'20px',borderTop:'1px solid var(--c-border)'}}>
+      {isFile&&<Banner type="warning" icon="⚠️" title="HTTP server required">
+        Google OAuth can't run on a <code>file://</code> URL. To use this feature, serve the file over HTTP — for example run <code>python3 -m http.server 8080</code> in the same folder, then open <code>http://localhost:8080</code>.
+      </Banner>}
+      {!isFile&&<>
+        <p style={{fontSize:'.875rem',color:'var(--c-text-secondary)',marginBottom:'20px',lineHeight:'1.7'}}>
+          Sign in with Google to search your existing calendars for period events. We'll show you what we find before importing anything. <strong>Read-only</strong> — we never modify your calendar.
+        </p>
+        {err&&<div className="mb-4"><Banner type="error" icon="⚠️">{err}</Banner></div>}
+        {status==='results'&&events.length===0&&<Banner type="info" icon="🔍">No new period events found. We searched all your calendars for "period", "menstrual", and "cycle" keywords. Any dates you've already logged here are excluded.</Banner>}
+        {status==='results'&&events.length>0&&<>
+          <p style={{fontSize:'.875rem',marginBottom:'12px',color:'var(--c-text-secondary)'}}>Found <strong>{events.length} event{events.length===1?'':'s'}</strong> that look like period data. Select which to import:</p>
+          <div style={{display:'flex',flexDirection:'column',gap:'6px',marginBottom:'16px'}}>
+            {events.map(e=><label key={e.id} style={{display:'flex',alignItems:'center',gap:'12px',padding:'10px 14px',border:`1.5px solid ${sel2[e.id]?'var(--c-primary-light)':'var(--c-border)'}`,borderRadius:'var(--r-md)',cursor:'pointer',fontSize:'.875rem',background:sel2[e.id]?'var(--c-primary-lighter)':'var(--c-bg-card)',transition:'all var(--t-fast)'}}>
+              <input type="checkbox" checked={!!sel2[e.id]} onChange={()=>setSel2(s=>({...s,[e.id]:!s[e.id]}))} style={{accentColor:'var(--c-primary)',width:'16px',height:'16px',flexShrink:0}}/>
+              <span style={{flex:1}}>{fmtDisp(e.date)} <span style={{fontSize:'.78rem',color:'var(--c-text-muted)',marginLeft:'4px'}}>"{e.title}"</span></span>
+              <span style={{fontSize:'.72rem',color:'var(--c-text-muted)',flexShrink:0}}>{e.cal}</span>
+            </label>)}
+          </div>
+          <Banner type="info" icon="💡">Imported periods default to <strong>5 days</strong> duration — you can edit them on Step 1 afterwards.</Banner>
+          <div style={{display:'flex',gap:'10px',marginTop:'16px',flexWrap:'wrap'}}>
+            <button type="button" className="btn btn-primary" onClick={doImport} disabled={numChosen===0}>Import {numChosen} selected period{numChosen===1?'':'s'}</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={()=>{setStatus('idle');setEvents([]);setErr('');}}>Start over</button>
+          </div>
+        </>}
+        {(status==='idle'||status==='auth')&&
+          <button type="button" className="btn btn-secondary" onClick={connect} disabled={status==='auth'}>
+            {status==='auth'?'⏳ Waiting for sign-in…':'🔗 Sign in with Google'}
+          </button>
+        }
+        {status==='loading'&&<div style={{padding:'24px 0',textAlign:'center',color:'var(--c-text-muted)',fontSize:'.875rem'}}>
+          <span style={{fontSize:'1.4rem',display:'block',marginBottom:'10px',animation:'spin 1s linear infinite',transformOrigin:'center'}}>⟳</span>
+          Searching your calendars for period events…
+        </div>}
+      </>}
+    </div>}
+  </div>;
+}
+
+/* ── Step 4: Export ──────────────────────────────────────────────────────── */
+function Step4({predictions,sel,periods,symptoms,onBack,onStartOver,shareUrl,updateNotice,onGCalImport,onEditData}){
+  const [downloaded,setDownloaded]=useState(false);
+  const [showShare,setShowShare]=useState(false);
+  const t=todayStr();
+  const limited=predictions.filter(p=>p.periodEnd>=t).slice(0,6);
+  const n=limited.length;
+
+  return <div>
+    <div className="page-hero">
+      <p className="page-hero-step">04 / 04</p>
+      <h1 className="page-hero-title">Add to Google Calendar</h1>
+      <p className="page-hero-desc">Download your predictions as a calendar file, then import them into Google Calendar in a few steps.</p>
+    </div>
+
+    {updateNotice&&<div className="update-notice">
+      <span style={{fontSize:'1.1rem',flexShrink:0}}>✨</span>
+      <div className="update-notice-body">
+        <div className="update-notice-title">Predictions updated</div>
+        {updateNotice} Re-download your file to get the latest events.
+      </div>
+    </div>}
+
+    {/* Download button — prominent, first */}
+    <div style={{marginBottom:'12px'}}>
+      <button type="button" className={`btn btn-lg btn-full ${downloaded?'btn-fertile':'btn-primary'}`} onClick={()=>{dlICS(predictions,sel);setDownloaded(true);}} aria-live="polite">
+        {downloaded?'✓ Downloaded — download again':'⬇ Download .ics file'}
+      </button>
+      {downloaded&&<p style={{textAlign:'center',fontSize:'.8rem',color:'var(--c-text-muted)',marginTop:'10px'}}>Saved to your downloads folder.</p>}
+    </div>
+
+    {/* Accuracy notice — prominent block */}
+    <div style={{background:'var(--c-bg-raised)',border:'1px solid var(--c-border)',borderRadius:'var(--r-lg)',padding:'16px 20px',marginBottom:'36px',display:'flex',gap:'14px',alignItems:'flex-start'}}>
+      <span style={{fontSize:'1rem',flexShrink:0}}>📊</span>
+      <div>
+        <div style={{fontWeight:600,fontSize:'.875rem',marginBottom:'4px',color:'var(--c-text)'}}>A note on accuracy</div>
+        <p style={{fontSize:'.875rem',color:'var(--c-text-secondary)',lineHeight:'1.7'}}>Cycle tracking apps are great for understanding your patterns — but no app is 100% accurate. In studies, more than half of users found their period started earlier or later than predicted. The more periods you log, the smarter your predictions get. Use this as a guide, not a guarantee.</p>
+      </div>
+    </div>
+
+    {/* Always-visible step-by-step guide */}
+    <div style={{marginBottom:'48px'}}>
+      <h2 className="sec-title" style={{marginBottom:'28px'}}>How to add your predictions to Google Calendar</h2>
+      <div className="steps-list">
+        {[
+          {t:'Click "Download .ics file" above',d:'This saves a calendar file to your computer.'},
+          {t:'Open Google Calendar at calendar.google.com'},
+          {t:'In the left sidebar, click "Other calendars" → "+" → "Create new calendar"'},
+          {t:'Name it "My Cycle" and click "Create calendar"'},
+          {t:'Click the settings cog → "Settings" → find "My Cycle" under Other calendars'},
+          {t:'Scroll to "Import & export" → "Import" → select your downloaded file'},
+        ].map((s,i)=><div key={i} className="step-item">
+          <div className="step-num">{i+1}</div>
+          <div className="step-body"><div className="step-title">{s.t}</div>{s.d&&<div className="step-desc">{s.d}</div>}</div>
+        </div>)}
+      </div>
+    </div>
+
+    {/* Google Calendar sync — above share link */}
+    <GCalSync existingDates={periods.map(p=>p.startDate)} onImport={onGCalImport}/>
+
+    {/* Save link */}
+    <div style={{marginBottom:'48px'}}>
+      <button type="button" className="collapse-btn" style={{paddingTop:0}} onClick={()=>setShowShare(v=>!v)} aria-expanded={showShare}>
+        <div>
+          <div className="sec-title" style={{marginBottom:'4px',fontSize:'.95rem'}}>🔗 Save a link to your data</div>
+          <p className="sec-sub" style={{fontWeight:400}}>Bookmark this to return with your data pre-filled</p>
+        </div>
+        <span className={`collapse-arrow ${showShare?'open':''}`} aria-hidden="true">▼</span>
+      </button>
+      {showShare&&<div style={{marginTop:'16px'}}>
+        <Banner type="warning" icon="⚠️"><strong>Note:</strong> This link contains your cycle data. Only share with people you trust. Your data is <strong>never sent to any server</strong>.</Banner>
+        <div style={{marginTop:'14px'}}><CopyField value={shareUrl} label="share-link"/></div>
+      </div>}
+    </div>
+
+    <p style={{fontSize:'.78rem',color:'var(--c-text-muted)',marginTop:'32px',lineHeight:'1.65'}}>🔒 Your data never leaves your device. No account, no server, no tracking.</p>
+
+    <div className="nav">
+      <button type="button" className="btn btn-ghost" onClick={onBack}>← Back to predictions</button>
+      <button type="button" className="btn btn-secondary" onClick={onEditData}>✏️ Edit my data</button>
+    </div>
+  </div>;
+}
+
+/* ── App ─────────────────────────────────────────────────────────────────── */
+const SK='cycle-tracker-v2';
+const loadSt=()=>{try{const r=localStorage.getItem(SK);if(r)return JSON.parse(r);}catch{}return null;};
+const loadHash=()=>{try{const h=window.location.hash;if(h.startsWith('#data=')){return JSON.parse(atob(h.slice(6)));}}catch{}return null;};
+const mkShare=(periods,symptoms)=>{try{return `${window.location.origin}${window.location.pathname}#data=${btoa(JSON.stringify({periods,symptoms}))}`;}catch{return window.location.href;}};
+
+function App(){
+  const [step,setStep]=useState(0);
+  const [periods,setPeriods]=useState([]);
+  const [symptoms,setSymptoms]=useState(DEFAULT_SYMPTOMS);
+  const [manualCycleLen,setManualCycleLen]=useState(28);
+  const [stats,setStats]=useState(null);
+  const [predictions,setPredictions]=useState([]);
+  const [sel,setSel]=useState({period:true,symptoms:true,ovulation:false,fertile:false});
+  const [dark,setDark]=useState(()=>window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const [showLog,setShowLog]=useState(false);
+  const [updateNotice,setUpdateNotice]=useState('');
+  const [justUpdated,setJustUpdated]=useState(false);
+  const [lifecycleCtx,setLifecycleCtx]=useState([]);
+  const [redFlags,setRedFlags]=useState([]);
+  const prevStatRef=useRef(null);
+
+  useEffect(()=>{
+    const data=loadHash()||loadSt();
+    if(data){
+      if(data.periods?.length)setPeriods(data.periods);
+      if(data.symptoms?.length)setSymptoms(data.symptoms);
+      if(data.manualCycleLen)setManualCycleLen(data.manualCycleLen);
+      if(data.lifecycleCtx?.length)setLifecycleCtx(data.lifecycleCtx);
+      if(data.periods?.length)setStep(1); // skip landing if returning user
+    }
+    if(loadHash()&&window.history.replaceState)window.history.replaceState(null,'',window.location.pathname);
+  },[]);
+
+  useEffect(()=>{document.documentElement.classList.toggle('dark',dark);},[dark]);
+
+  function save(p,s,mcl,lc){try{localStorage.setItem(SK,JSON.stringify({periods:p,symptoms:s,manualCycleLen:mcl,lifecycleCtx:lc||lifecycleCtx}));}catch{}}
+
+  const handlePeriods=p=>{setPeriods(p);save(p,symptoms,manualCycleLen);};
+  const handleSymptoms=s=>{setSymptoms(s);save(periods,s,manualCycleLen);};
+  const handleManualCycle=v=>{setManualCycleLen(v);save(periods,symptoms,v);};
+  const handleLifecycleCtx=lc=>{setLifecycleCtx(lc);save(periods,symptoms,manualCycleLen,lc);};
+
+  function go(s){setStep(s);window.scrollTo({top:0,behavior:'smooth'});}
+
+  function goTo2(){const s=calcStats(periods,manualCycleLen);setStats(s);prevStatRef.current=s;setRedFlags(calcRedFlags(periods,s));go(2);}
+  function goTo3(ov=stats){const p=genPredictions(periods,ov,symptoms);setPredictions(p);go(3);}
+  function goTo4(){go(4);}
+
+  function regen(){const s=calcStats(periods,manualCycleLen);setStats(s);setPredictions(genPredictions(periods,s,symptoms));}
+
+  function logPeriod(date,dur){
+    const oldStats=stats||calcStats(periods,manualCycleLen);
+    const newPeriods=[...periods,{startDate:date,duration:dur}];
+    const newStats=calcStats(newPeriods,manualCycleLen);
+    const newPreds=genPredictions(newPeriods,newStats,symptoms);
+
+    // Build update notice
+    let notice='';
+    if(oldStats.hasLimitedData&&!newStats.hasLimitedData){
+      notice=`Your actual cycle is ${newStats.avgCycleLength} days — updated from the ${oldStats.avgCycleLength}-day estimate we started with.`;
+    } else if(Math.abs(newStats.avgCycleLength-(oldStats.avgCycleLength||28))>=2){
+      notice=`Based on ${newPeriods.length} cycles, your average has updated to ${newStats.avgCycleLength} days.`;
+    } else {
+      notice=`Based on ${newPeriods.length} cycles, your average is ${newStats.avgCycleLength} days (±${newStats.stdDev}d).`;
+    }
+
+    setPeriods(newPeriods);setStats(newStats);setPredictions(newPreds);
+    setRedFlags(calcRedFlags(newPeriods,newStats));
+    save(newPeriods,symptoms,manualCycleLen);
+    setUpdateNotice(notice);setJustUpdated(true);
+    setTimeout(()=>setJustUpdated(false),5000);
+    setShowLog(false);
+  }
+
+  function batchImportPeriods(items){
+    const newPeriods=[...periods];
+    items.forEach(it=>{if(!newPeriods.some(p=>p.startDate===it.date))newPeriods.push({startDate:it.date,duration:5});});
+    const newStats=calcStats(newPeriods,manualCycleLen);
+    const newPreds=genPredictions(newPeriods,newStats,symptoms);
+    setPeriods(newPeriods);setStats(newStats);setPredictions(newPreds);
+    save(newPeriods,symptoms,manualCycleLen);
+    const added=newPeriods.length-periods.length;
+    setUpdateNotice(`${added} period${added===1?'':'s'} imported from Google Calendar. Predictions updated.`);
+    setJustUpdated(true);setTimeout(()=>setJustUpdated(false),5000);
+  }
+
+  const shareUrl=mkShare(periods,symptoms);
+  const showLogBtn=periods.length>0&&step>1&&step<=4;
+
+  return <div className="app">
+    {showLog&&<LogPeriodModal existingDates={periods.map(p=>p.startDate)} onAdd={logPeriod} onClose={()=>setShowLog(false)}/>}
+    <header className="app-header" role="banner">
+      <div className="app-header-inner">
+        <div className="app-logo" aria-label="CycleSync">
+          <span className="app-logo-icon" aria-hidden="true">🌸</span>
+          <span className="app-logo-text">CycleSync</span>
+        </div>
+        <div className="header-actions">
+          {showLogBtn&&<button type="button" className="btn-log" onClick={()=>setShowLog(true)} aria-label="Log a new period">+ Log period</button>}
+          <button type="button" className={`btn-dm ${dark?'is-dark':''}`} onClick={()=>setDark(d=>!d)} aria-label={dark?'Switch to light mode':'Switch to dark mode'} title={dark?'Currently dark — click to switch to light':'Currently light — click to switch to dark'}>{dark?'☀️':'🌙'}<span className="dm-label">{dark?'Light':'Dark'}</span></button>
+        </div>
+      </div>
+      {step>0&&<ProgressBar step={step}/>}
+    </header>
+    <main className="app-main" role="main">
+      {step===0&&<Step0 onStart={()=>go(1)}/>}
+      {step===1&&<Step1 periods={periods} symptoms={symptoms} manualCycleLength={manualCycleLen} onPeriods={handlePeriods} onSymptoms={handleSymptoms} onManualCycle={handleManualCycle} onNext={goTo2} lifecycleCtx={lifecycleCtx} onLifecycleCtx={handleLifecycleCtx}/>}
+      {step===2&&stats&&<Step2 periods={periods} stats={stats} onBack={()=>go(1)} onNext={()=>goTo3(stats)} onLog={()=>setShowLog(true)} justUpdated={justUpdated} redFlags={redFlags} lifecycleCtx={lifecycleCtx}/>}
+      {step===3&&<Step3 predictions={predictions} stats={stats} histPeriods={periods} sel={sel} onSel={setSel} onBack={()=>go(2)} onNext={goTo4} onRegen={regen} onLog={()=>setShowLog(true)} justUpdated={justUpdated} onEditData={()=>go(1)}/>}
+      {step===4&&<Step4 predictions={predictions} sel={sel} periods={periods} symptoms={symptoms} onBack={()=>go(3)} onStartOver={()=>go(1)} shareUrl={shareUrl} updateNotice={updateNotice} onGCalImport={batchImportPeriods} onEditData={()=>go(1)}/>}
+    </main>
+    <footer className="app-footer" role="contentinfo">
+      <p>🔒 Your data is saved privately on this device · No account required · No data ever sent to a server</p>
+    </footer>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
