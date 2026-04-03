@@ -1534,7 +1534,7 @@ function App(){
         </button>
         <div className="header-actions">
           {showLogBtn&&<button type="button" className="btn-log" onClick={()=>setShowLog(true)} aria-label="Log a new period">Log period</button>}
-          <button type="button" className={`btn-dm ${dark?'is-dark':''}`} onClick={()=>setDark(d=>!d)} aria-label={dark?'Switch to light mode':'Switch to dark mode'} title={dark?'Currently dark — click to switch to light':'Currently light — click to switch to dark'}>{dark?'☀️':'🌙'}<span className="dm-label">{dark?'Light':'Dark'}</span></button>
+          <button type="button" className={`btn-dm ${dark?'is-dark':''}`} onClick={()=>setDark(d=>!d)} aria-label={dark?'Switch to light mode':'Switch to dark mode'} title={dark?'Currently dark — click to switch to light':'Currently light — click to switch to dark'}>{dark?'☀️':'🌙'}<span className="dm-label">{dark?'Light Mode':'Dark Mode'}</span></button>
         </div>
       </div>
       {step>0&&<ProgressBar step={step} maxStep={maxStep} onNav={go}/>}
